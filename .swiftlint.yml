@@ -1,0 +1,23 @@
+included:
+  - App
+  - Widgets
+  - Packages/DaysUntilCore/Sources
+  - Packages/DaysUntilCore/Tests
+  - Packages/DaysUntilCore/Package.swift
+  - scripts
+excluded:
+  - Packages/DaysUntilCore/.build
+line_length:
+  warning: 120
+  ignores_urls: true
+file_length:
+  warning: 300
+function_body_length:
+  warning: 50
+identifier_name:
+  min_length: 2
+# Formatting is owned by SwiftFormat.
+disabled_rules:
+  - trailing_comma
+  - opening_brace
+strict: true

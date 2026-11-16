@@ -1,0 +1,99 @@
+name: DaysUntil
+options:
+  bundleIdPrefix: com.tgrecojr
+  deploymentTarget:
+    macOS: "27.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: Z8Y8855838
+    # Manual signing with the local Apple Development certificate and no
+    # provisioning profile: nothing to expire after 7 days, and Xcode never
+    # contacts the developer portal at build time. See README "Signing".
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: Apple Development
+    PROVISIONING_PROFILE_SPECIFIER: ""
+    ENABLE_HARDENED_RUNTIME: YES
+    # Team-ID-prefixed App Group: on macOS this form needs no provisioning profile.
+    APP_GROUP_ID: $(DEVELOPMENT_TEAM).com.tgrecojr.daysuntil
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+
+packages:
+  DaysUntilCore:
+    path: Packages/DaysUntilCore
+
+targets:
+  DaysUntil:
+    type: application
+    platform: macOS
+    sources: [App]
+    dependencies:
+      - package: DaysUntilCore
+        product: DaysUntilCore
+      - package: DaysUntilCore
+        product: DaysUntilUI
+      - target: DaysUntilWidgets
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tgrecojr.daysuntil
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: DaysUntil
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.productivity
+        AppGroupIdentifier: $(APP_GROUP_ID)
+        CFBundleURLTypes:
+          - CFBundleURLName: com.tgrecojr.daysuntil
+            CFBundleURLSchemes: [daysuntil]
+    entitlements:
+      path: App/DaysUntil.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups: [$(APP_GROUP_ID)]
+
+  DaysUntilWidgets:
+    type: app-extension
+    platform: macOS
+    sources: [Widgets]
+    dependencies:
+      - package: DaysUntilCore
+        product: DaysUntilCore
+      - package: DaysUntilCore
+        product: DaysUntilUI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tgrecojr.daysuntil.widgets
+    info:
+      path: Widgets/Info.plist
+      properties:
+        CFBundleDisplayName: DaysUntil
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        AppGroupIdentifier: $(APP_GROUP_ID)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Widgets/DaysUntilWidgets.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups: [$(APP_GROUP_ID)]
+
+schemes:
+  DaysUntil:
+    build:
+      targets:
+        DaysUntil: all
+    run:
+      config: Debug
+    archive:
+      config: Release

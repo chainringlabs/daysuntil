@@ -1,0 +1,27 @@
+# Environment
+.env
+.env.*
+.env.local
+!.env.example
+
+# Xcode / Swift
+# The project is generated from project.yml by `make generate`.
+*.xcodeproj
+xcuserdata/
+DerivedData/
+.build/
+.swiftpm/
+*.xcresult
+
+# Claude local files
+.claude/settings.local.json
+CLAUDE.local.md
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
