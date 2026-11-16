@@ -25,10 +25,42 @@ struct NumberFace: View {
                 Spacer(minLength: 4)
                 HeroValue(context: context, fontSize: context.metrics.hero)
                 Text(context.text.label).font(context.metrics.caption.weight(.medium)).opacity(0.85)
-                Text(context.dateLine).font(context.metrics.detail).opacity(0.6).padding(.top, 2)
+                if context.size == .large {
+                    LargeFooter(context: context, showsBar: false).padding(.top, 10)
+                } else {
+                    Text(context.dateLine).font(context.metrics.detail).opacity(0.6).padding(.top, 2)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+}
+
+/// The extra room of a large face: optionally a progress bar, then the
+/// percentage, the count restated in weeks, and the date.
+struct LargeFooter: View {
+    let context: FaceContext
+    let showsBar: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if showsBar {
+                ProgressBar(context: context)
+            }
+            HStack(alignment: .firstTextBaseline) {
+                Text(leading).fontWeight(.semibold)
+                Spacer(minLength: 8)
+                Text(context.dateLine).opacity(0.7)
+            }
+            .font(context.metrics.detail)
+            .lineLimit(1)
+        }
+    }
+
+    /// "63% · 3 weeks, 2 days", leaving out whichever part does not apply.
+    private var leading: String {
+        let parts = [context.countdown.percentText, context.countdown.weeksText].compactMap(\.self)
+        return parts.joined(separator: " · ")
     }
 }
 
@@ -36,22 +68,30 @@ struct NumberFace: View {
 struct BarFace: View {
     let context: FaceContext
 
+    private var isLarge: Bool {
+        context.size == .large
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             FaceHeader(context: context)
             Spacer(minLength: 2)
-            HStack(alignment: .firstTextBaseline, spacing: 5) {
-                HeroValue(context: context, fontSize: context.metrics.value)
+            HStack(alignment: .firstTextBaseline, spacing: isLarge ? 8 : 5) {
+                HeroValue(context: context, fontSize: isLarge ? context.metrics.hero * 0.8 : context.metrics.value)
                 Text(context.text.label).font(context.metrics.caption.weight(.medium)).opacity(0.85)
             }
-            ProgressBar(context: context)
-            HStack {
-                Text(context.countdown.percentText ?? "")
-                Spacer()
-                Text(context.dateLine).opacity(0.7)
+            if isLarge {
+                LargeFooter(context: context, showsBar: true)
+            } else {
+                ProgressBar(context: context)
+                HStack {
+                    Text(context.countdown.percentText ?? "")
+                    Spacer()
+                    Text(context.dateLine).opacity(0.7)
+                }
+                .font(context.metrics.detail.weight(.medium))
+                .lineLimit(1)
             }
-            .font(context.metrics.detail.weight(.medium))
-            .lineLimit(1)
         }
     }
 }
@@ -73,9 +113,14 @@ struct RingFace: View {
                 Spacer(minLength: 0)
             }
         } else {
-            VStack(spacing: 8) {
+            VStack(spacing: context.size == .large ? 12 : 8) {
                 ring
                 FaceHeader(context: context)
+                if context.size == .large {
+                    Text("\(context.countdown.percentText ?? "") · \(context.dateLine)")
+                        .font(context.metrics.detail)
+                        .opacity(0.7)
+                }
             }
             .frame(maxWidth: .infinity)
         }
@@ -84,8 +129,10 @@ struct RingFace: View {
     private var ring: some View {
         ProgressRing(context: context).overlay {
             VStack(spacing: -2) {
-                HeroValue(context: context, fontSize: context.metrics.value)
-                Text(context.text.label).font(context.metrics.detail.weight(.medium)).opacity(0.85)
+                HeroValue(context: context, fontSize: context.metrics.ringValue)
+                Text(context.text.label)
+                    .font((context.size == .large ? context.metrics.caption : context.metrics.detail).weight(.medium))
+                    .opacity(0.85)
             }
             .padding(context.metrics.ringWidth * 2)
         }

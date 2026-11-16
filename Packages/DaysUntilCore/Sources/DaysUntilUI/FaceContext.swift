@@ -27,6 +27,8 @@ struct FacePalette {
 struct FaceMetrics {
     let hero: CGFloat
     let value: CGFloat
+    /// The count inside the ring, sized to the ring rather than the card.
+    let ringValue: CGFloat
     let title: Font
     let caption: Font
     let detail: Font
@@ -36,13 +38,13 @@ struct FaceMetrics {
     init(_ size: FaceSize) {
         switch size {
         case .small:
-            (hero, value, ringWidth, barHeight) = (58, 30, 9, 8)
+            (hero, value, ringValue, ringWidth, barHeight) = (58, 30, 30, 9, 8)
             (title, caption, detail) = (.subheadline, .caption, .caption2)
         case .medium:
-            (hero, value, ringWidth, barHeight) = (68, 36, 11, 10)
+            (hero, value, ringValue, ringWidth, barHeight) = (68, 36, 34, 11, 10)
             (title, caption, detail) = (.subheadline, .caption, .caption2)
         case .large:
-            (hero, value, ringWidth, barHeight) = (110, 52, 20, 14)
+            (hero, value, ringValue, ringWidth, barHeight) = (132, 64, 92, 22, 14)
             (title, caption, detail) = (.title3, .subheadline, .caption)
         }
     }
