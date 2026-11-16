@@ -18,7 +18,12 @@ public extension Theme {
 
     /// The unfilled part of bars, rings and dots.
     var trackColor: Color {
-        ink.color.opacity(0.2)
+        ink.color.opacity(Theme.trackOpacity)
+    }
+
+    /// Ink for text that is not the title or the value.
+    var secondaryInkColor: Color {
+        ink.color.opacity(Theme.secondaryTextOpacity)
     }
 
     var background: LinearGradient {

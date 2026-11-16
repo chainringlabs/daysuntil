@@ -10,8 +10,8 @@ struct MilestoneForm: View {
         Form {
             Section {
                 TextField("Title", text: $milestone.title, prompt: Text("Trip, deadline, anniversary…"))
-                DatePicker("Date", selection: $milestone.targetDate, displayedComponents: dateComponents)
-                Toggle("Include a time", isOn: $milestone.includesTime)
+                DatePicker("Date", selection: targetDate, displayedComponents: dateComponents)
+                Toggle("Include a time", isOn: includesTime)
             }
             Section {
                 Toggle("Track progress from a start date", isOn: hasStartDate)
@@ -35,32 +35,55 @@ struct MilestoneForm: View {
         milestone.includesTime ? [.date, .hourAndMinute] : [.date]
     }
 
+    /// @spec APP-EDIT-002
+    private var includesTime: Binding<Bool> {
+        Binding(
+            get: { milestone.includesTime },
+            set: { milestone = EditorRules.setIncludesTime($0, on: milestone) }
+        )
+    }
+
+    /// @spec APP-EDIT-003
     private var hasStartDate: Binding<Bool> {
         Binding(
             get: { milestone.startDate != nil },
-            set: { milestone.startDate = $0 ? min(milestone.createdAt, milestone.targetDate) : nil }
+            set: { milestone = EditorRules.setTracksStart($0, on: milestone) }
+        )
+    }
+
+    /// The pickers work in local time; an all-day milestone stores the
+    /// calendar day picked, not the instant.
+    private var targetDate: Binding<Date> {
+        Binding(
+            get: { milestone.localDate(for: milestone.targetDate) },
+            set: { milestone.targetDate = milestone.storedDate(forLocal: $0) }
         )
     }
 
     private var startDate: Binding<Date> {
         Binding(
-            get: { milestone.startDate ?? milestone.createdAt },
-            set: { milestone.startDate = $0 }
+            get: { milestone.localDate(for: milestone.startDate ?? milestone.targetDate) },
+            set: { milestone.startDate = milestone.storedDate(forLocal: $0) }
         )
     }
 
+    /// @spec APP-EDIT-004
     private var progressNote: String {
-        if let start = milestone.startDate, start >= milestone.targetDate {
-            return "The start date has to be before the target date for progress to show."
+        switch EditorRules.progressNote(for: milestone) {
+        case .fromDayAdded:
+            "Without a start date, progress runs from the day you added this milestone."
+        case .noneWithoutStart:
+            "No progress to show: the date isn't after the day you added this. A start date would fix that."
+        case .fromStartDate:
+            "Progress runs from the start date to the target date."
+        case .startNotBeforeTarget:
+            "The start date has to be before the target date for progress to show."
         }
-        if milestone.startDate == nil {
-            return "Without a start date, progress runs from the day you added this milestone."
-        }
-        return "Progress runs from the start date to the target date."
     }
 }
 
 /// A grid of suggested SF Symbols plus a field for typing an emoji instead.
+/// @spec APP-EDIT-005
 struct SymbolPicker: View {
     @Binding var symbol: String
 
@@ -106,6 +129,7 @@ struct SymbolPicker: View {
 }
 
 /// A row of swatches, one per built-in theme.
+/// @spec APP-EDIT-006
 struct ThemePicker: View {
     @Binding var themeID: String
 

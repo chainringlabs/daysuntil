@@ -5,18 +5,23 @@ import WidgetKit
 /// The colours a face draws with. In full colour they come from the theme;
 /// when the system tints or dims a widget they collapse to `primary` so the
 /// system can recolour them.
+/// @spec FACE-COLOUR-001, FACE-COLOUR-002
 struct FacePalette {
     let ink: Color
+    /// Ink for every text that is not the title or the value.
+    let secondary: Color
     let accent: Color
     let track: Color
 
     init(theme: Theme, renderingMode: WidgetRenderingMode) {
         if renderingMode == .fullColor {
             ink = theme.inkColor
+            secondary = theme.secondaryInkColor
             accent = theme.accentColor
             track = theme.trackColor
         } else {
             ink = .primary
+            secondary = .primary.opacity(Theme.secondaryTextOpacity)
             accent = .primary
             track = .primary.opacity(0.25)
         }
@@ -71,8 +76,16 @@ struct FaceContext {
     }
 
     /// "Dec 9, 2026", with the time appended for timed milestones.
+    /// @spec FACE-CONTENT-010
     var dateLine: String {
         let day = Date.FormatStyle.dateTime.month(.abbreviated).day().year()
-        return milestone.targetDate.formatted(milestone.includesTime ? day.hour().minute() : day)
+        let shown = milestone.localDate(for: milestone.targetDate)
+        return shown.formatted(milestone.includesTime ? day.hour().minute() : day)
+    }
+
+    /// The count's value: a system-driven clock in the final day and the
+    /// first day past, static text otherwise.
+    var value: Text {
+        milestone.valueText(for: countdown)
     }
 }

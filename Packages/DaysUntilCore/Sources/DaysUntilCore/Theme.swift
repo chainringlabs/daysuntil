@@ -28,6 +28,17 @@ public struct RGB: Hashable, Sendable {
         return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
     }
 
+    /// This colour drawn over `background` at `opacity`, as an opaque colour.
+    public func blended(over background: RGB, opacity: Double) -> RGB {
+        func mix(_ top: UInt32, _ bottom: UInt32) -> UInt32 {
+            UInt32((Double(top) * opacity + Double(bottom) * (1 - opacity)).rounded())
+        }
+        let red = mix((hex >> 16) & 0xFF, (background.hex >> 16) & 0xFF)
+        let green = mix((hex >> 8) & 0xFF, (background.hex >> 8) & 0xFF)
+        let blue = mix(hex & 0xFF, background.hex & 0xFF)
+        return RGB(red << 16 | green << 8 | blue)
+    }
+
     /// WCAG contrast ratio against another colour, 1...21.
     public func contrast(with other: RGB) -> Double {
         let lighter = max(luminance, other.luminance)
@@ -36,6 +47,7 @@ public struct RGB: Hashable, Sendable {
     }
 }
 
+/// @spec THEME-004, THEME-005, THEME-006
 /// A built-in look for a milestone: a two-stop background, an ink colour for
 /// text, and an accent for the filled part of progress marks.
 public struct Theme: Identifiable, Hashable, Sendable {
@@ -46,10 +58,11 @@ public struct Theme: Identifiable, Hashable, Sendable {
     public let ink: RGB
     public let accent: RGB
 
+    /// @spec THEME-001
     public static let all: [Theme] = [
-        Theme(id: "ember", name: "Ember", top: 0xC2401C, bottom: 0x962E13, ink: 0xFFF6EC, accent: 0xFFE08A),
+        ember,
         Theme(id: "tide", name: "Tide", top: 0x1F5F8B, bottom: 0x123C5E, ink: 0xEFF8FF, accent: 0x7FE3D4),
-        Theme(id: "moss", name: "Moss", top: 0x4F7942, bottom: 0x2F4F2A, ink: 0xF4F8EC, accent: 0xE3E36A),
+        Theme(id: "moss", name: "Moss", top: 0x406536, bottom: 0x2A4726, ink: 0xF4F8EC, accent: 0xE3E36A),
         Theme(id: "plum", name: "Plum", top: 0x6B3A75, bottom: 0x40204A, ink: 0xFBF1FF, accent: 0xFF9EC4),
         Theme(id: "dune", name: "Dune", top: 0xF0DFC0, bottom: 0xDDC597, ink: 0x3A2C17, accent: 0xB4501F),
         Theme(id: "frost", name: "Frost", top: 0xEAF1F5, bottom: 0xCBD9E2, ink: 0x1C2B36, accent: 0x1F6FB0),
@@ -57,8 +70,23 @@ public struct Theme: Identifiable, Hashable, Sendable {
         Theme(id: "ink", name: "Ink", top: 0x1B1B1F, bottom: 0x0C0C0E, ink: 0xF5F2EA, accent: 0xC9F26B),
     ]
 
-    public static let `default` = all[0]
+    private static let ember = Theme(
+        id: "ember", name: "Ember", top: 0xA83414, bottom: 0x7E2610, ink: 0xFFF6EC, accent: 0xFFE08A
+    )
 
+    /// The theme of a new milestone, and the fallback for an unknown id.
+    /// @spec THEME-002
+    public static let `default` = ember
+
+    /// The one opacity ink is drawn at for dimmed text. Every theme keeps
+    /// 4.5:1 contrast at this opacity; see the theme tests.
+    /// @spec THEME-007
+    public static let secondaryTextOpacity = 0.8
+    /// The opacity of ink used for the unfilled part of bars, rings and dots.
+    /// @spec THEME-008
+    public static let trackOpacity = 0.2
+
+    /// @spec THEME-003
     /// Looks a theme up by id, falling back to the default for unknown ids so
     /// a removed or renamed theme never breaks a stored milestone.
     public static func named(_ id: String) -> Theme {

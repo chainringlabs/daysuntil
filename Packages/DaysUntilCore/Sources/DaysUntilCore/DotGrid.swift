@@ -23,17 +23,26 @@ public struct DotGrid: Hashable, Sendable {
     public let filled: Int
     public let unit: Unit
 
+    /// @spec COUNT-DOTS-001, COUNT-DOTS-002, COUNT-DOTS-003, COUNT-DOTS-005
     public init(totalDays: Int, elapsedDays: Int, maxDots: Int) {
         let total = max(totalDays, 1)
         let elapsed = min(max(elapsedDays, 0), total)
         let limit = max(maxDots, 1)
-        let fitting = Unit.allCases.first { Self.buckets(total, in: $0) <= limit } ?? .year
+        guard let fitting = Unit.allCases.first(where: { Self.buckets(total, in: $0) <= limit }) else {
+            // Too long even for years: the limit's dots, filled in proportion,
+            // so the grid is never full before the span is.
+            unit = .year
+            count = limit
+            filled = Int(Double(elapsed) / Double(total) * Double(limit))
+            return
+        }
         unit = fitting
-        count = min(Self.buckets(total, in: fitting), limit)
+        count = Self.buckets(total, in: fitting)
         // A finished span fills every dot even when the last bucket is partial.
         filled = elapsed == total ? count : min(elapsed / fitting.rawValue, count)
     }
 
+    /// @spec COUNT-DOTS-004
     /// "1 dot = 1 week"; `nil` when each dot is a single day.
     public var legend: String? {
         unit == .day ? nil : "1 dot = 1 \(unit.name)"

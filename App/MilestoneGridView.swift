@@ -9,7 +9,6 @@ struct MilestoneGridView: View {
     @Query private var records: [MilestoneRecord]
 
     @AppStorage("cardStyle") private var cardStyle = FaceStyle.number
-    @State private var showArchived = false
     @State private var pendingDelete: Milestone?
 
     private var editing: MilestoneEditing {
@@ -23,32 +22,21 @@ struct MilestoneGridView: View {
         }
         .frame(minWidth: 420, minHeight: 320)
         .toolbar { toolbar }
-        .sheet(item: $model.draft) { draft in
-            MilestoneEditor(draft: draft, onSave: editing.save) { pendingDelete = $0 }
+        .sheet(item: Binding(get: { model.draft }, set: { _ in model.closeEditor() })) { draft in
+            MilestoneEditor(draft: draft, onSave: editing.save, onDelete: editing.delete)
         }
-        .confirmationDialog(
-            "Delete “\(pendingDelete?.title ?? "")”?",
-            isPresented: Binding(get: { pendingDelete != nil }, set: {
-                if !$0 {
-                    pendingDelete = nil
-                }
-            }),
-            presenting: pendingDelete
-        ) { milestone in
-            Button("Delete", role: .destructive) { editing.delete(milestone) }
-        } message: { _ in
-            Text("Widgets showing this milestone will ask you to pick another.")
-        }
+        .deleteConfirmation(for: $pendingDelete, onConfirm: editing.delete)
         .onOpenURL(perform: open)
     }
 
+    /// @spec APP-GRID-003, APP-GRID-005
     @ViewBuilder
     private func content(now: Date) -> some View {
         let milestones = records.map(\.snapshot)
-            .filter { $0.isArchived == showArchived }
+            .filter { $0.isArchived == model.showArchived }
             .sortedForDisplay(now: now)
         if milestones.isEmpty {
-            EmptyStateView(showingArchived: showArchived) { model.startNew() }
+            EmptyStateView(showingArchived: model.showArchived) { model.startNew() }
         } else {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 18)], spacing: 18) {
@@ -76,8 +64,10 @@ struct MilestoneGridView: View {
         }
     }
 
+    /// @spec APP-GRID-004
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
+        @Bindable var model = model
         ToolbarItem(placement: .principal) {
             Picker("Card style", selection: $cardStyle) {
                 ForEach(FaceStyle.allCases) { Text($0.name).tag($0) }
@@ -86,7 +76,7 @@ struct MilestoneGridView: View {
             .help("How milestones are drawn in this window")
         }
         ToolbarItemGroup(placement: .primaryAction) {
-            Toggle(isOn: $showArchived) {
+            Toggle(isOn: $model.showArchived) {
                 Label("Archived", systemImage: "archivebox")
             }
             .help("Show archived milestones")
@@ -98,14 +88,19 @@ struct MilestoneGridView: View {
     }
 
     /// Handles `daysuntil://milestone/<id>`, the link behind every widget.
+    /// The system has already brought the app forward; a link to a milestone
+    /// that is gone, or one arriving mid-edit, changes nothing else.
+    /// @spec APP-LINK-001, APP-LINK-002
     private func open(_ url: URL) {
-        guard let id = Milestone.id(from: url),
+        guard !model.isEditing,
+              let id = Milestone.id(from: url),
               let record = records.first(where: { $0.id == id }) else { return }
-        showArchived = record.isArchived
+        model.showArchived = record.isArchived
         model.edit(record.snapshot)
     }
 }
 
+/// @spec APP-GRID-006, APP-GRID-007
 private struct EmptyStateView: View {
     let showingArchived: Bool
     let onNew: () -> Void

@@ -16,6 +16,7 @@ public final class MilestoneRecord {
     public var isArchived: Bool
     public var createdAt: Date
 
+    /// @spec STORE-001
     public init(_ milestone: Milestone) {
         id = milestone.id
         title = milestone.title
@@ -30,6 +31,7 @@ public final class MilestoneRecord {
     }
 
     /// Copies every editable field from a snapshot. `id` and `createdAt` are identity and stay put.
+    /// @spec STORE-002
     public func apply(_ milestone: Milestone) {
         title = milestone.title
         targetDate = milestone.targetDate

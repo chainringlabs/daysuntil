@@ -20,6 +20,7 @@ public enum FaceStyle: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// @spec COUNT-STYLE-001
     /// The style actually drawn. Bar, ring and dots all need a progress span;
     /// a milestone without one falls back to the plain number.
     public func resolved(for countdown: Countdown) -> FaceStyle {
@@ -33,6 +34,7 @@ public enum FaceSize: String, CaseIterable, Sendable {
     case medium
     case large
 
+    /// @spec COUNT-DOTS-006
     /// The most dots the dot style shows at this size before bucketing days
     /// into weeks, months or years.
     public var maxDots: Int {

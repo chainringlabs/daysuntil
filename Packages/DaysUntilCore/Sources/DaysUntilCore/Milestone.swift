@@ -46,16 +46,19 @@ public struct Milestone: Identifiable, Hashable, Sendable {
         Theme.named(themeID)
     }
 
+    /// @spec COUNT-MS-003
     /// True when `symbol` should be drawn as text (an emoji) rather than an SF Symbol.
     public var symbolIsEmoji: Bool {
         !symbol.allSatisfy(\.isASCII)
     }
 
+    /// @spec COUNT-MS-001
     /// Deep link that opens the app on this milestone.
     public var url: URL {
         URL(string: "daysuntil://milestone/\(id.uuidString)") ?? URL(filePath: "/")
     }
 
+    /// @spec COUNT-MS-002
     /// Parses a deep link produced by `url`.
     public static func id(from url: URL) -> UUID? {
         guard url.scheme == "daysuntil", url.host() == "milestone" else { return nil }

@@ -7,6 +7,7 @@ public struct CountdownText: Hashable, Sendable {
     /// What the value means: "days until", "day since", "left".
     public let label: String
 
+    /// @spec COUNT-TEXT-001, COUNT-TEXT-002, COUNT-TEXT-003, COUNT-TEXT-004, COUNT-TEXT-005, COUNT-TEXT-006
     public init(_ countdown: Countdown) {
         switch countdown.phase {
         case .today:
@@ -15,7 +16,7 @@ public struct CountdownText: Hashable, Sendable {
         case .upcoming where countdown.isFinalDay:
             value = Self.clock(hours: countdown.hours, minutes: countdown.minutes)
             label = "left"
-        case .past where countdown.isTimed && countdown.days == 0:
+        case .past where countdown.isFirstDayPast:
             value = Self.clock(hours: countdown.hours, minutes: countdown.minutes)
             label = "ago"
         case .upcoming:
@@ -37,7 +38,10 @@ public struct CountdownText: Hashable, Sendable {
     }
 
     private static func clock(hours: Int, minutes: Int) -> String {
-        hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        }
+        return minutes > 0 ? "\(minutes)m" : "<1m"
     }
 }
 
@@ -46,11 +50,13 @@ public extension Countdown {
         CountdownText(self)
     }
 
+    /// @spec COUNT-TEXT-007
     /// Progress as a whole percentage, "64%".
     var percentText: String? {
         progress.map { "\(Int(($0 * 100).rounded(.down)))%" }
     }
 
+    /// @spec COUNT-TEXT-008
     /// The day count restated in weeks, e.g. "6 weeks, 2 days". `nil` under a week.
     var weeksText: String? {
         guard days >= 7 else { return nil }
