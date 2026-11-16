@@ -35,27 +35,31 @@ public struct SymbolMark: View {
     }
 }
 
-/// The big value. On a timed milestone's final day it becomes a live timer,
-/// which the system keeps ticking without new widget timeline entries.
+public extension Milestone {
+    /// The count's value as text. In a timed milestone's final day and first
+    /// day past it is a timer the system keeps running, down to the target
+    /// and then up from it, without new widget timeline entries.
+    /// @spec FACE-CLOCK-001, FACE-CLOCK-002
+    func valueText(for countdown: Countdown) -> Text {
+        countdown.needsLiveClock ? Text(targetDate, style: .timer) : Text(countdown.text.value)
+    }
+}
+
+/// The big value.
 struct HeroValue: View {
     let context: FaceContext
     let fontSize: CGFloat
 
     var body: some View {
-        Group {
-            if context.countdown.isFinalDay {
-                Text(context.milestone.targetDate, style: .timer)
-            } else {
-                Text(context.text.value)
-            }
-        }
-        .font(context.metrics.rounded(fontSize))
-        .monospacedDigit()
-        .lineLimit(1)
-        .minimumScaleFactor(0.35)
+        context.value
+            .font(context.metrics.rounded(fontSize))
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.35)
     }
 }
 
+/// @spec FACE-CONTENT-007
 struct ProgressBar: View {
     let context: FaceContext
 

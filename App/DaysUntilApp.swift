@@ -10,6 +10,7 @@ struct DaysUntilApp: App {
     @State private var model = AppModel()
 
     var body: some Scene {
+        // @spec APP-GRID-001, APP-GRID-002
         Window("DaysUntil", id: "main") {
             switch store {
             case let .success(container):
@@ -25,7 +26,7 @@ struct DaysUntilApp: App {
             CommandGroup(replacing: .newItem) {
                 Button("New Milestone") { model.startNew() }
                     .keyboardShortcut("n")
-                    .disabled(!canEdit)
+                    .disabled(!canEdit || model.isEditing)
             }
         }
     }

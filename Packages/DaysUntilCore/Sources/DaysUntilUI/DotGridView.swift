@@ -29,6 +29,7 @@ struct DotGridView: View {
 }
 
 /// Positions `count` dots in a left-aligned grid inside a rectangle.
+/// @spec FACE-DOTS-001
 struct DotLayout {
     let columns: Int
     let cell: CGFloat

@@ -4,56 +4,51 @@ import SwiftUI
 import WidgetKit
 
 struct MilestoneEntry: TimelineEntry {
-    enum Content {
-        case milestone(Milestone)
-        /// The store has no active milestones at all.
-        case noMilestones
-        /// The configured milestone was deleted or archived.
-        case missing
-    }
-
     let date: Date
-    let content: Content
+    let content: WidgetContent
     let style: FaceStyle
 }
 
 struct MilestoneTimelineProvider: AppIntentTimelineProvider {
+    /// @spec WIDGET-GALLERY-001
     func placeholder(in _: Context) -> MilestoneEntry {
         MilestoneEntry(date: .now, content: .milestone(.sample()), style: .number)
     }
 
     func snapshot(for configuration: MilestoneWidgetIntent, in context: Context) async -> MilestoneEntry {
-        let entry = entry(for: configuration, at: .now)
-        if context.isPreview, case .noMilestones = entry.content {
-            // The widget gallery should show what the widget looks like, not an empty state.
-            return MilestoneEntry(date: .now, content: .milestone(.sample()), style: entry.style)
+        let now = Date.now
+        let style = configuration.style.faceStyle
+        let content = WidgetContent.resolve(
+            milestones: WidgetStore.allMilestones(now: now), chosenID: configuration.milestone?.id, now: now
+        )
+        if context.isPreview, content == .noMilestones {
+            // The widget gallery should show what the widget looks like, not an instruction.
+            return MilestoneEntry(date: now, content: .milestone(.sample(now: now)), style: style)
         }
-        return entry
+        return MilestoneEntry(date: now, content: content, style: style)
     }
 
+    /// One entry for now and one per instant a count changes. What to show is
+    /// decided again for each entry, so a widget with no milestone chosen
+    /// moves to the next milestone at the right moment by itself.
+    /// @spec WIDGET-TIME-001, WIDGET-TIME-002
     func timeline(for configuration: MilestoneWidgetIntent, in _: Context) async -> Timeline<MilestoneEntry> {
         let now = Date.now
-        let first = entry(for: configuration, at: now)
-        guard case let .milestone(milestone) = first.content else {
-            return Timeline(entries: [first], policy: .never)
-        }
-        // One entry per upcoming change; the app also reloads timelines on every edit.
-        let later = RefreshSchedule.dates(for: [milestone], from: now).map {
-            MilestoneEntry(date: $0, content: first.content, style: first.style)
-        }
-        return Timeline(entries: [first] + later, policy: .atEnd)
-    }
-
-    private func entry(for configuration: MilestoneWidgetIntent, at date: Date) -> MilestoneEntry {
         let style = configuration.style.faceStyle
-        let content: MilestoneEntry.Content
-        if let chosen = configuration.milestone {
-            let found = WidgetStore.milestone(id: chosen.id).flatMap { $0.isArchived ? nil : $0 }
-            content = found.map { .milestone($0) } ?? .missing
-        } else {
-            content = WidgetStore.milestones(now: date).first.map { .milestone($0) } ?? .noMilestones
+        let chosenID = configuration.milestone?.id
+        let stored = WidgetStore.allMilestones(now: now)
+        func entry(at date: Date) -> MilestoneEntry {
+            let content = WidgetContent.resolve(milestones: stored, chosenID: chosenID, now: date)
+            return MilestoneEntry(date: date, content: content, style: style)
         }
-        return MilestoneEntry(date: date, content: content, style: style)
+        let first = entry(at: now)
+        guard !first.content.isMessage else {
+            return Timeline(entries: [first], policy: .after(now.addingTimeInterval(messageRefreshInterval)))
+        }
+        // The milestones this widget could show: the chosen one, or any active one.
+        let candidates = (stored ?? []).filter { !$0.isArchived && (chosenID == nil || $0.id == chosenID) }
+        let later = RefreshSchedule.dates(for: candidates, from: now).map(entry(at:))
+        return Timeline(entries: [first] + later, policy: .atEnd)
     }
 }
 
@@ -61,6 +56,7 @@ struct MilestoneWidgetView: View {
     @Environment(\.widgetFamily) private var family
     let entry: MilestoneEntry
 
+    /// @spec WIDGET-SHOW-006, WIDGET-SHOW-007
     var body: some View {
         switch entry.content {
         case let .milestone(milestone):
@@ -68,12 +64,11 @@ struct MilestoneWidgetView: View {
                 .containerBackground(for: .widget) { milestone.theme.background }
                 .widgetURL(milestone.url)
         case .noMilestones:
-            WidgetMessageView(symbol: "calendar.badge.plus", message: "Add a milestone in DaysUntil")
-        case .missing:
-            WidgetMessageView(
-                symbol: "questionmark.circle",
-                message: "Milestone removed. Edit this widget to pick another."
-            )
+            WidgetMessageView.noMilestones
+        case .removed:
+            WidgetMessageView.removed
+        case .unavailable:
+            WidgetMessageView.unavailable
         }
     }
 }

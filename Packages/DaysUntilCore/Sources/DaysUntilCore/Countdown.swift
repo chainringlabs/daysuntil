@@ -27,50 +27,68 @@ public struct Countdown: Hashable, Sendable {
     /// Days of the span already elapsed, 0...totalDays.
     public let elapsedDays: Int?
 
+    /// @spec COUNT-ALLDAY-001, COUNT-ALLDAY-002, COUNT-ALLDAY-003, COUNT-TIMED-001, COUNT-TIMED-002
+    /// @spec COUNT-PROG-001, COUNT-PROG-002, COUNT-PROG-003, COUNT-PROG-004, COUNT-PROG-005
     public init(for milestone: Milestone, now: Date = .now, calendar: Calendar = .current) {
         isTimed = milestone.includesTime
+        let target = milestone.targetPosition(in: calendar)
+        let start = milestone.progressStart(in: calendar)
         let span: Span?
         if milestone.includesTime {
-            let distance = TimedDistance(to: milestone.targetDate, now: now, calendar: calendar)
+            let distance = TimedDistance(to: target, now: now, calendar: calendar)
             (phase, days) = (distance.phase, distance.days)
             (hours, minutes) = (distance.hours, distance.minutes)
-            span = Span(timedFrom: milestone.progressStart, to: milestone.targetDate, now: now)
+            span = Span(timedFrom: start, to: target, now: now)
         } else {
-            let offset = calendar.daysBetween(now, milestone.targetDate)
+            let offset = calendar.daysBetween(now, target)
             phase = offset > 0 ? .upcoming : (offset == 0 ? .today : .past)
             days = abs(offset)
             hours = 0
             minutes = 0
-            span = Span(allDayFrom: milestone.progressStart, to: milestone.targetDate, now: now, calendar: calendar)
+            span = Span(allDayFrom: start, to: target, now: now, calendar: calendar)
         }
         progress = span?.progress
         totalDays = span?.totalDays
         elapsedDays = span?.elapsedDays
     }
 
-    /// True when a timed milestone is under a day away, so the display should
-    /// tick in hours and minutes rather than show a day count.
+    /// True when a timed milestone is under a day away.
+    /// @spec COUNT-TIMED-003
     public var isFinalDay: Bool {
         isTimed && phase == .upcoming && days == 0
+    }
+
+    /// True when a timed milestone passed under a day ago and `Now` is over.
+    /// @spec COUNT-TIMED-004
+    public var isFirstDayPast: Bool {
+        isTimed && phase == .past && days == 0
+    }
+
+    /// True when a display should run a clock instead of showing a day count.
+    /// @spec COUNT-TIMED-005
+    public var needsLiveClock: Bool {
+        isFinalDay || isFirstDayPast
     }
 }
 
 /// How far a timed target is from now, split into days, hours and minutes.
-private struct TimedDistance {
+struct TimedDistance {
     let phase: Countdown.Phase
     let days: Int
     let hours: Int
     let minutes: Int
 
+    /// How long `Now` lasts after the target instant.
+    static let nowWindow: TimeInterval = 60
+
     init(to target: Date, now: Date, calendar: Calendar) {
-        let interval = target.timeIntervalSince(now)
-        // Inside the same minute there is nothing left to count.
-        guard abs(interval) >= 60 else {
+        let sinceTarget = now.timeIntervalSince(target)
+        guard sinceTarget < 0 || sinceTarget >= Self.nowWindow else {
             (phase, days, hours, minutes) = (.today, 0, 0, 0)
             return
         }
         let parts = calendar.dateComponents([.day, .hour, .minute], from: min(now, target), to: max(now, target))
-        phase = interval > 0 ? .upcoming : .past
+        phase = sinceTarget < 0 ? .upcoming : .past
         days = parts.day ?? 0
         hours = parts.hour ?? 0
         minutes = parts.minute ?? 0
@@ -102,13 +120,8 @@ private struct Span {
     }
 }
 
-extension Milestone {
-    /// Where progress is measured from.
-    var progressStart: Date {
-        startDate ?? createdAt
-    }
-
-    public func countdown(now: Date = .now, calendar: Calendar = .current) -> Countdown {
+public extension Milestone {
+    func countdown(now: Date = .now, calendar: Calendar = .current) -> Countdown {
         Countdown(for: self, now: now, calendar: calendar)
     }
 }

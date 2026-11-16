@@ -19,6 +19,7 @@ public struct MilestoneFace: View {
         self.now = now
     }
 
+    /// @spec FACE-RENDER-001, FACE-RENDER-002, FACE-CONTENT-001, FACE-A11Y-001
     public var body: some View {
         let countdown = milestone.countdown(now: now)
         let context = FaceContext(
@@ -32,9 +33,10 @@ public struct MilestoneFace: View {
             .foregroundStyle(context.palette.ink)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(accessibilityText(for: countdown))
+            .accessibilityLabel(milestone.accessibilityLabel(now: now))
     }
 
+    /// @spec FACE-CONTENT-002
     @ViewBuilder
     private func layout(for context: FaceContext) -> some View {
         switch style.resolved(for: context.countdown) {
@@ -43,11 +45,6 @@ public struct MilestoneFace: View {
         case .ring: RingFace(context: context)
         case .dots: DotsFace(context: context)
         }
-    }
-
-    private func accessibilityText(for countdown: Countdown) -> String {
-        let percent = countdown.percentText.map { ", \($0) complete" } ?? ""
-        return "\(milestone.title), \(countdown.text.sentence)\(percent)"
     }
 }
 
@@ -66,6 +63,7 @@ public struct MilestoneCard: View {
         self.now = now
     }
 
+    /// @spec FACE-RENDER-003
     public var body: some View {
         MilestoneFace(milestone, style: style, size: size, now: now)
             .padding(16)

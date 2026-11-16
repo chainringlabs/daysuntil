@@ -5,27 +5,46 @@ import WidgetKit
 
 struct UpcomingEntry: TimelineEntry {
     let date: Date
-    let milestones: [Milestone]
+    let content: UpcomingContent
 }
 
 struct UpcomingTimelineProvider: TimelineProvider {
-    func placeholder(in _: Context) -> UpcomingEntry {
-        UpcomingEntry(date: .now, milestones: Milestone.samples())
+    /// @spec WIDGET-GALLERY-001
+    func placeholder(in context: Context) -> UpcomingEntry {
+        UpcomingEntry(date: .now, content: samples(for: context, now: .now))
     }
 
     func getSnapshot(in context: Context, completion: @escaping @Sendable (UpcomingEntry) -> Void) {
-        let stored = WidgetStore.milestones()
-        let shown = stored.isEmpty && context.isPreview ? Milestone.samples() : stored
-        completion(UpcomingEntry(date: .now, milestones: shown))
+        let now = Date.now
+        let content = UpcomingContent.resolve(
+            milestones: WidgetStore.allMilestones(now: now), size: context.family.faceSize, now: now
+        )
+        let shown = context.isPreview && content == .noMilestones ? samples(for: context, now: now) : content
+        completion(UpcomingEntry(date: now, content: shown))
     }
 
-    func getTimeline(in _: Context, completion: @escaping @Sendable (Timeline<UpcomingEntry>) -> Void) {
+    /// One entry for now and one per instant a count changes, with the rows
+    /// decided again at each: a milestone that passes drops below the upcoming ones.
+    /// @spec WIDGET-TIME-002, WIDGET-TIME-003
+    func getTimeline(in context: Context, completion: @escaping @Sendable (Timeline<UpcomingEntry>) -> Void) {
         let now = Date.now
-        let milestones = WidgetStore.milestones(now: now)
-        // Re-sort at each entry: a milestone that passes drops below the upcoming ones.
-        let dates = [now] + RefreshSchedule.dates(for: milestones, from: now)
-        let entries = dates.map { UpcomingEntry(date: $0, milestones: milestones.sortedForDisplay(now: $0)) }
-        completion(Timeline(entries: entries, policy: .atEnd))
+        let size = context.family.faceSize
+        let stored = WidgetStore.allMilestones(now: now)
+        func entry(at date: Date) -> UpcomingEntry {
+            UpcomingEntry(date: date, content: UpcomingContent.resolve(milestones: stored, size: size, now: date))
+        }
+        let first = entry(at: now)
+        guard !first.content.isMessage else {
+            let retry = now.addingTimeInterval(messageRefreshInterval)
+            return completion(Timeline(entries: [first], policy: .after(retry)))
+        }
+        let active = (stored ?? []).filter { !$0.isArchived }
+        let later = RefreshSchedule.dates(for: active, from: now).map(entry(at:))
+        completion(Timeline(entries: [first] + later, policy: .atEnd))
+    }
+
+    private func samples(for context: Context, now: Date) -> UpcomingContent {
+        UpcomingContent.resolve(milestones: Milestone.samples(now: now), size: context.family.faceSize, now: now)
     }
 }
 
@@ -33,28 +52,33 @@ struct UpcomingWidgetView: View {
     @Environment(\.widgetFamily) private var family
     let entry: UpcomingEntry
 
-    private var rowLimit: Int {
-        family == .systemLarge ? 7 : 3
+    var body: some View {
+        switch entry.content {
+        case let .rows(milestones):
+            rows(milestones)
+        case .noMilestones:
+            WidgetMessageView.noMilestones
+        case .unavailable:
+            WidgetMessageView.unavailable
+        }
     }
 
-    var body: some View {
-        if entry.milestones.isEmpty {
-            WidgetMessageView(symbol: "calendar.badge.plus", message: "Add a milestone in DaysUntil")
-        } else {
-            VStack(spacing: 0) {
-                ForEach(entry.milestones.prefix(rowLimit)) { milestone in
-                    Link(destination: milestone.url) {
-                        UpcomingRow(milestone: milestone, now: entry.date)
-                    }
-                    .frame(maxHeight: .infinity)
+    /// @spec WIDGET-LIST-003, WIDGET-LIST-004
+    private func rows(_ milestones: [Milestone]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(milestones) { milestone in
+                Link(destination: milestone.url) {
+                    UpcomingRow(milestone: milestone, now: entry.date)
                 }
-                // Pad with empty slots so rows keep their height when the list is short.
-                ForEach(0 ..< max(rowLimit - entry.milestones.count, 0), id: \.self) { _ in
-                    Color.clear.frame(maxHeight: .infinity)
-                }
+                .frame(maxHeight: .infinity)
             }
-            .containerBackground(.background, for: .widget)
+            // Pad with empty slots so rows keep their height when the list is short.
+            let limit = UpcomingContent.rowLimit(for: family.faceSize)
+            ForEach(0 ..< max(limit - milestones.count, 0), id: \.self) { _ in
+                Color.clear.frame(maxHeight: .infinity)
+            }
         }
+        .containerBackground(.background, for: .widget)
     }
 }
 
@@ -63,8 +87,10 @@ struct UpcomingRow: View {
     let milestone: Milestone
     let now: Date
 
+    /// @spec WIDGET-LIST-002
     var body: some View {
-        let text = milestone.countdown(now: now).text
+        let countdown = milestone.countdown(now: now)
+        let text = countdown.text
         HStack(spacing: 10) {
             SymbolMark(milestone: milestone)
                 .font(.footnote.weight(.semibold))
@@ -80,9 +106,11 @@ struct UpcomingRow: View {
             Text(milestone.title)
                 .font(.subheadline.weight(.medium))
                 .lineLimit(1)
+                .layoutPriority(1)
             Spacer(minLength: 6)
             VStack(alignment: .trailing, spacing: -1) {
-                Text(text.value)
+                milestone.valueText(for: countdown)
+                    .multilineTextAlignment(.trailing)
                     .font(.system(.title3, design: .rounded, weight: .heavy))
                     .monospacedDigit()
                     .widgetAccentable()
