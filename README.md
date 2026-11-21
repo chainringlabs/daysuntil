@@ -72,3 +72,7 @@ scripts/make-icon.swift      draws the app icon
 The app and the widget extension share one SwiftData store in the App Group
 container. The app writes it and reloads widget timelines after every change; the
 extension only reads.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
